@@ -7,6 +7,13 @@
       <p class="subtitle">
         France
       </p>
+      <select v-model="selected">
+        <option
+          v-for="dep in depts"
+          :key="dep.departement"
+          :value="dep.departement">{{ dep.nccenr }}</option>
+      </select>
+      <span>Selected: {{ selected }}</span>
     </div>
     <div class="container">
       <plotly :data="dataHospitalized"></plotly>
@@ -19,6 +26,7 @@
 
 <script>
 import Plotly from './components/Plotly.vue';
+import depts from './data/depts2018.js'
 
 export default {
   name: 'App',
@@ -29,8 +37,8 @@ export default {
     return {
       arrPositive: [],
       arrHospitalized: [],
-      dataHospitalized: [],
-      dataPositive: []
+      selected: 54,
+      depts: depts
     }
   },
   async created() {
@@ -51,15 +59,6 @@ export default {
       });
     });
 
-    let my_dep = this.arrHospitalized.filter(d => (d.departement == 54 && d.sex == 0));
-
-    const traceHospitalized = {
-      x: my_dep.map(d => d.date),
-      y: my_dep.map(d => d.hospitalized),
-      mode: 'line'
-    };
-    this.dataHospitalized = [traceHospitalized];
-
     response = await fetch('https://www.data.gouv.fr/fr/datasets/r/4180a181-a648-402b-92e4-f7574647afa6');
     data = await response.text();
 
@@ -73,24 +72,38 @@ export default {
         positive: cols[3]
       });
     });
-    
-    my_dep = this.arrPositive.filter(d => (d.departement == 54));
+  },
+  computed: {
+    dataHospitalized() {
+      const my_dep = this.arrHospitalized.filter(d => (d.departement == this.selected && d.sex == 0));
 
-    const positive = my_dep.map(d => 100000.0*d.positive/d.population);
-    const trace1 = {
-      x: my_dep.map(d => d.date),
-      y: positive,
-      mode: 'line',
-      name: 'Positive'
-    };
-    const trace2 = {
-      x: my_dep.map(d => d.date),
-      y: this.rollingMean(positive, 7),
-      mode: 'line',
-      name: 'Rolling'
-    }
-    this.dataPositive = [trace1, trace2];
+      const traceHospitalized = {
+        x: my_dep.map(d => d.date),
+        y: my_dep.map(d => d.hospitalized),
+        mode: 'line'
+      };
+      return [traceHospitalized];
+    },
+    dataPositive() {
+      const my_dep = this.arrPositive.filter(d => (d.departement == this.selected));
 
+      const positive = my_dep.map(d => 100000.0*d.positive/d.population);
+
+      const trace1 = {
+        x: my_dep.map(d => d.date),
+        y: positive,
+        mode: 'line',
+        name: 'Positive'
+      }
+      const trace2 = {
+        x: my_dep.map(d => d.date),
+        y: this.rollingMean(positive, 7),
+        mode: 'line',
+        name: 'Rolling'
+      }
+
+      return [trace1, trace2];
+    },
   },
   methods: {
     rollingMean(arr, window) {
