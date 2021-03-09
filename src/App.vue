@@ -88,6 +88,7 @@ export default {
       const my_dep = this.arrPositive.filter(d => (d.departement == this.selected));
 
       const positive = my_dep.map(d => 100000.0*d.positive/d.population);
+      const rollingMean = this.rollingMean(positive, 7);
 
       const trace1 = {
         x: my_dep.map(d => d.date),
@@ -97,7 +98,8 @@ export default {
       }
       const trace2 = {
         x: my_dep.map(d => d.date),
-        y: this.rollingMean(positive, 7),
+        y: rollingMean,
+        text: rollingMean.map(el => 7.0*el),
         mode: 'line',
         name: 'Rolling'
       }
