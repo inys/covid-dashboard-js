@@ -21,12 +21,16 @@
     <div class="container">
       <plotly :data="dataPositive"></plotly>
     </div>
+    <div class="container">
+      <plotly :data="dataPositivePerWeek"></plotly>
+    </div>
   </section>
 </template>
 
 <script>
 import Plotly from './components/Plotly.vue';
-import depts from './data/depts2018.js'
+import depts from './data/depts2018.js';
+import moment, { min, max } from 'moment';
 
 export default {
   name: 'App',
@@ -65,9 +69,14 @@ export default {
     rows = data.split('\n').slice(1);
     rows.forEach(row => {
       const cols = row.split(';');
+      const date = moment(cols[1]);
       this.arrPositive.push({
         departement: cols[0],
         date: cols[1],
+        week: date.isoWeek(),
+        day: date.day(),
+        month: date.month(),
+        year: date.year(),
         population: cols[2],
         positive: cols[3]
       });
@@ -87,22 +96,64 @@ export default {
     dataPositive() {
       const my_dep = this.arrPositive.filter(d => (d.departement == this.selected));
 
-      const positive = my_dep.map(d => 100000.0*d.positive/d.population);
+      const positive = my_dep.map(d => 100000.0*Number(d.positive)/Number(d.population));
       const rollingMean = this.rollingMean(positive, 7);
 
       const trace1 = {
         x: my_dep.map(d => d.date),
         y: positive,
         mode: 'line',
-        name: 'Positive'
+        name: 'Daily positive'
       }
       const trace2 = {
         x: my_dep.map(d => d.date),
         y: rollingMean,
         text: rollingMean.map(el => 7.0*el),
         mode: 'line',
-        name: 'Rolling'
+        name: 'Daily rolling'
       }
+
+      return [trace1, trace2];
+    },
+    dataPositivePerWeek() {
+      const my_dep = this.arrPositive.filter(d => (d.departement == this.selected));
+
+      if (my_dep.length == 0) {
+        return [];
+      }
+
+      const dates = my_dep.map(d => moment(d.date));
+      const start_date = min(dates);
+      const end_date = max(dates);
+
+      var x_axis = [];
+      var y_axis = [];
+
+      for (let date = start_date.day(11); date.isBefore(end_date); date.add(7, 'days')) {
+        x_axis.push(date.format('YYYY-MM-DD'))
+        y_axis.push(this.sum(
+          my_dep.filter(d => (d.week == date.isoWeek()) && (d.year == date.year()))
+            .map(d => 100000.0 * Number(d.positive)/Number(d.population))));
+      }
+
+      const trace1 = {
+        x: x_axis,
+        y: y_axis,
+        type: 'bar',
+        name: 'Weekly sum'
+      }
+
+      const positive = my_dep.map(d => 100000.0*Number(d.positive)/Number(d.population));
+      const rollingMean = this.rollingMean(positive, 7);
+
+      const trace2 = {
+        x: my_dep.map(d => d.date),
+        y: rollingMean.map(el => 7.0*el),
+        type: 'scatter',
+        mode: 'line',
+        name: 'Rolling sum'
+      }
+
 
       return [trace1, trace2];
     },
@@ -121,6 +172,23 @@ export default {
           return mean
         }
       })
+    },
+    sum(arr) {
+      if (toString.call(arr) !== "[object Array]") {
+        return false;
+      }
+        
+      var total = 0.0;
+      for (let i = 0; i < arr.length; i++) {
+        if (isNaN(arr[i])) {
+          continue;
+        }
+
+        total += Number(arr[i]);
+
+      }
+
+      return total;
     }
   },
   mounted() {
